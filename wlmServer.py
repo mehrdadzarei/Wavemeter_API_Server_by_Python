@@ -218,12 +218,17 @@ def handle_client(conn, addr):
                     # 0 for single mode and 1 for switch mode
                     dll.SetSwitcherMode(1)
 
-                if "EXP_AUTO" in obj_recv and obj_recv["EXP_AUTO"] == 1:
-                    dll.SetExposureModeNum(ctypes.c_long(ch), ctypes.c_bool(True))
-                elif "EXP_AUTO" in obj_recv and obj_recv["EXP_AUTO"] == 0:
-                    dll.SetExposureModeNum(ctypes.c_long(ch), ctypes.c_bool(False))
+                exp_mode = dll.GetExposureModeNum(ctypes.c_long(ch), 0)
 
-                if not dll.GetExposureModeNum(ctypes.c_long(ch), 0):
+                if "EXP_AUTO" in obj_recv and obj_recv["EXP_AUTO"] == 1 and not exp_mode:
+                    dll.SetExposureModeNum(ctypes.c_long(ch), ctypes.c_bool(True))
+                    time.sleep(1)
+                    exp_mode = True
+                elif "EXP_AUTO" in obj_recv and obj_recv["EXP_AUTO"] == 0 and exp_mode:
+                    dll.SetExposureModeNum(ctypes.c_long(ch), ctypes.c_bool(False))
+                    exp_mode = False
+
+                if not exp_mode:
                     
                     if "EXP_UP" in obj_recv:
                         # mode 1 for interferometer
@@ -233,13 +238,17 @@ def handle_client(conn, addr):
                         # mode 2 for wide interferometer
                         dll.SetExposureNum(ctypes.c_long(ch), ctypes.c_long(2), ctypes.c_long(obj_recv["EXP_DOWN"]))
 
+                # change the numbers to str during transfer with json
+                obj_send["EXP_UP"] = str(dll.GetExposureNum(ctypes.c_long(ch), ctypes.c_long(1)))
+                obj_send["EXP_DOWN"] = str(dll.GetExposureNum(ctypes.c_long(ch), ctypes.c_long(2)))
+                
                 if "WAVEL" in obj_recv and obj_recv["WAVEL"] == 1:
-                    wavelength = round(dll.GetWavelengthNum(ctypes.c_long(ch), ctypes.c_double(0)), 6)
-                    obj_send["WAVEL"] = wavelength
+                    wavelength = round(dll.GetWavelengthNum(ctypes.c_long(ch), ctypes.c_double(0)), 5)
+                    obj_send["WAVEL"] = str(wavelength)
 
                 if "FREQ" in obj_recv and obj_recv["FREQ"] == 1:
-                    freq = round(dll.GetFrequencyNum(ctypes.c_long(ch), ctypes.c_double(0)), 6)
-                    obj_send["FREQ"] = freq
+                    freq = round(dll.GetFrequencyNum(ctypes.c_long(ch), ctypes.c_double(0)), 5)
+                    obj_send["FREQ"] = str(freq)
                     
                 if "SPEC" in obj_recv and obj_recv["SPEC"] == 1:
                     
@@ -264,7 +273,7 @@ def handle_client(conn, addr):
                     except :
                         ratio = 1
 
-                    obj_send["RATIO"] = ratio
+                    obj_send["RATIO"] = str(ratio)
                     obj_send["SPEC"] = spectrum_list
                     
             obj_send["SEND"] = " "
