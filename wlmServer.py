@@ -207,17 +207,19 @@ def handle_client(conn, addr):
                 if ch < 0 or ch > 9:
                     ch = 1
                 
-                # for switch mode we don't use this part right now
-                # if ch != dll.GetSwitcherChannel():
-
-                #     dll.SetSwitcherChannel(ctypes.c_long(ch))
-                #     time.sleep(0.3)
-                # to keep the wavemeter available for other users, keep it on switch mode always
-                if not dll.GetSwitcherMode():
-                    
+                if "SWITCH_MODE" in obj_recv and obj_recv["SWITCH_MODE"] == 1 and not dll.GetSwitcherMode():
                     # 0 for single mode and 1 for switch mode
                     dll.SetSwitcherMode(1)
-
+                elif "SWITCH_MODE" in obj_recv and obj_recv["SWITCH_MODE"] == 0 and dll.GetSwitcherMode():
+                    # 0 for single mode and 1 for switch mode
+                    dll.SetSwitcherMode(0)
+                    if ch != dll.GetSwitcherChannel():
+                        dll.SetSwitcherChannel(ctypes.c_long(ch))
+                        time.sleep(0.3)
+                elif not dll.GetSwitcherMode() and ch != dll.GetSwitcherChannel():
+                    dll.SetSwitcherChannel(ctypes.c_long(ch))
+                    time.sleep(0.3)
+                
                 exp_mode = dll.GetExposureModeNum(ctypes.c_long(ch), 0)
 
                 if "EXP_AUTO" in obj_recv and obj_recv["EXP_AUTO"] == 1 and not exp_mode:
