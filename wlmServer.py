@@ -243,12 +243,13 @@ def handle_client(conn, addr):
                 obj_send["EXP_DOWN"] = str(dll.GetExposureNum(ctypes.c_long(ch), ctypes.c_long(2)))
                 
                 if "WAVEL" in obj_recv and obj_recv["WAVEL"] == 1:
-                    wavelength = round(dll.GetWavelengthNum(ctypes.c_long(ch), ctypes.c_double(0)), 5)
-                    obj_send["WAVEL"] = str(wavelength)
+                    # to keep laset digit if it is 0, we should use format
+                    wavelength = '{:.5f}'.format(round(dll.GetWavelengthNum(ctypes.c_long(ch), ctypes.c_double(0)), 6))
+                    obj_send["WAVEL"] = wavelength
 
                 if "FREQ" in obj_recv and obj_recv["FREQ"] == 1:
-                    freq = round(dll.GetFrequencyNum(ctypes.c_long(ch), ctypes.c_double(0)), 5)
-                    obj_send["FREQ"] = str(freq)
+                    freq = '{:.5f}'.format(round(dll.GetFrequencyNum(ctypes.c_long(ch), ctypes.c_double(0)), 6))
+                    obj_send["FREQ"] = freq
                     
                 if "SPEC" in obj_recv and obj_recv["SPEC"] == 1:
                     
