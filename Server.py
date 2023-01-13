@@ -179,11 +179,6 @@ def handle_client(conn, addr):
                     wlm_state = False
                     wlm = wavelength_meter.WavelengthMeter(dllpath = str(sys.argv[3]), WlmVer = int(sys.argv[4]))
             
-                if "SWITCH_MODE" in obj_recv:
-                    
-                    # 0 for single mode and 1 for switch mode
-                    wlm.setSwitcherMode(obj_recv["SWITCH_MODE"])
-                    
                 if "CH" in obj_recv:
 
                     ch = obj_recv["CH"]
@@ -191,6 +186,14 @@ def handle_client(conn, addr):
                         ch = 1
                 else:
                     ch = ch
+
+                if "SWITCH_MODE" in obj_recv:
+                    
+                    # 0 for single mode and 1 for switch mode
+                    wlm.setSwitcherMode(obj_recv["SWITCH_MODE"])
+                    if obj_recv["SWITCH_MODE"] == 1:
+                        wlm.setSwitcherSignalStates(ch, 1, 0)
+                
                 wlm.setSwitcherChannel(ch)
 
                 if "EXP_AUTO" in obj_recv and obj_recv["EXP_AUTO"] == 1:

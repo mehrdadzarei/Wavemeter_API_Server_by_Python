@@ -47,6 +47,8 @@ class WavelengthMeter:
         self.dll.SetSwitcherMode.restype = ctypes.c_long
         self.dll.GetSwitcherChannel.restype = ctypes.c_long
         self.dll.SetSwitcherChannel.restype = ctypes.c_long
+        self.dll.GetSwitcherSignalStates.restype = ctypes.c_long
+        self.dll.SetSwitcherSignalStates.restype = ctypes.c_long
         self.dll.GetWavelengthNum.restype = ctypes.c_double
         self.dll.GetFrequencyNum.restype = ctypes.c_double
         self.dll.GetExposureNum.restype = ctypes.c_long
@@ -147,11 +149,16 @@ class WavelengthMeter:
 
     def setSwitcherChannel(self, channel, t = 0.3):
 
-        self.ch = channel
-        if self.getSwitcherChannel() != self.ch:
+        if self.getSwitcherChannel() != channel:
 
-            self.dll.SetSwitcherChannel(ctypes.c_long(self.ch))
+            self.dll.SetSwitcherChannel(ctypes.c_long(channel))
             sleep(t)     # limitation
+
+    def setSwitcherSignalStates(self, channel, use, show, t = 0.3):
+
+        # use = 1 or 0, show = 1 or 0
+        self.dll.SetSwitcherSignalStates(ctypes.c_long(channel), ctypes.c_long(use), ctypes.c_long(show))
+        # sleep(t)     # limitation
 
     def getWavelength(self, channel = 1):
 
@@ -233,5 +240,6 @@ class WavelengthMeter:
 # sleep(3)
 # wlm.setSwitcherMode(0)
 # print(wlm.getWavelength(1))
-
+# wlm.setSwitcherSignalStates(2, 1, 0)
+# wlm.getSwitcherSignalStates(1)
 
