@@ -17,7 +17,7 @@ import numpy as np
 
 class WavelengthMeter:
 
-    def __init__(self, dllpath = "C:\Windows\System32\wlmData.dll", WlmVer = 491, action = 'show'):
+    def __init__(self, dllpath = "C:\Windows\System32\wlmData.dll", WlmVer = 491):
 
         """
         Wavelength Meter class.
@@ -64,9 +64,7 @@ class WavelengthMeter:
         # self.dll.GetPatternDataNum.restype = ctypes.c_long
         self.dll.GetAmplitudeNum.restype = ctypes.c_long
 
-        self.run(action)
-
-    def run(self, action):
+    def run(self, action = 'show'):
 
         if action == 'show':
 
@@ -236,10 +234,11 @@ class WavelengthMeter:
 
 
 # wlm = WavelengthMeter(WlmVer = 4499)
+# wlm.run(action = 'show')    # show or hide
 # wlm.measurement(cCtrlStartMeasurement)
-# sleep(3)
 # wlm.setSwitcherMode(0)
 # print(wlm.getWavelength(1))
 # wlm.setSwitcherSignalStates(2, 1, 0)
 # wlm.getSwitcherSignalStates(1)
 
+# wlm.exit()        # close the Wavemeter software

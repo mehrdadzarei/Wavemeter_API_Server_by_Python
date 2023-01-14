@@ -13,6 +13,7 @@ import json
 import threading
 import socket
 import sys
+from wlmConst import *
 import wavelength_meter
 
 
@@ -178,6 +179,8 @@ def handle_client(conn, addr):
                 if wlm_state:
                     wlm_state = False
                     wlm = wavelength_meter.WavelengthMeter(dllpath = str(sys.argv[3]), WlmVer = int(sys.argv[4]))
+                    wlm.run(action = 'show')    # show or hide
+                    wlm.measurement(cCtrlStartMeasurement)   # state : cCtrlStopAll, cCtrlStartMeasurement
             
                 if "CH" in obj_recv:
 
@@ -219,13 +222,22 @@ def handle_client(conn, addr):
                 obj_send["EXP_UP"] = str(wlm.getExposure(ch, 1))
                 obj_send["EXP_DOWN"] = str(wlm.getExposure(ch, 2))
                 
+                if "PREC" in obj_recv:
+                    prec = obj_recv["PREC"]
+                else:
+                    prec = 5
+                
                 if "WAVEL" in obj_recv and obj_recv["WAVEL"] == 1:
                     # to keep laset digit if it is 0, we should use format
-                    wavelength = '{:.5f}'.format(round(wlm.getWavelength(ch), 6))
+                    # if your digits are variable use this
+                    wavelength = f'{wlm.getWavelength(ch):.{prec}f}'
+                    # wavelength = '{:.5f}'.format(round(wlm.getWavelength(ch), 6))
                     obj_send["WAVEL"] = wavelength
 
                 if "FREQ" in obj_recv and obj_recv["FREQ"] == 1:
-                    freq = '{:.5f}'.format(round(wlm.getFrequency(ch), 6))
+                    # if your digits are variable use this
+                    freq = f'{wlm.getFrequency(ch):.{prec}f}'
+                    # freq = '{:.5f}'.format(round(wlm.getFrequency(ch), 6))
                     obj_send["FREQ"] = freq
                     
                 if "SPEC" in obj_recv and obj_recv["SPEC"] == 1:
