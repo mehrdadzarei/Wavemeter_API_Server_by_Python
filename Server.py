@@ -150,6 +150,10 @@ def handle_client(conn, addr):
     connected = True
     wlm_state = True
     ch = 1
+    switch_mode = -1
+    exp_mode = False
+    exp_up = -1
+    exp_down = -1
 
     while connected:
 
@@ -190,37 +194,69 @@ def handle_client(conn, addr):
                 else:
                     ch = ch
 
-                if "SWITCH_MODE" in obj_recv:
-                    
+                wlmSwitch_mode = wlm.getSwitcherMode()
+                # take changes from wavemeter
+                if wlmSwitch_mode != switch_mode:
+                    switch_mode = wlmSwitch_mode
+                # apply changes from operator
+                elif "SWITCH_MODE" in obj_recv and obj_recv["SWITCH_MODE"] != switch_mode:
+
                     # 0 for single mode and 1 for switch mode
                     wlm.setSwitcherMode(obj_recv["SWITCH_MODE"])
+                    switch_mode = obj_recv["SWITCH_MODE"]
                     if obj_recv["SWITCH_MODE"] == 1:
                         wlm.setSwitcherSignalStates(ch, 1, 0)
-                
+                obj_send["SWITCH_MODE"] = switch_mode
+
                 wlm.setSwitcherChannel(ch)
 
-                if "EXP_AUTO" in obj_recv and obj_recv["EXP_AUTO"] == 1:
+                wlmExp_auto = wlm.getExposureMode(ch)
+                # take changes from wavemeter
+                if wlmExp_auto != exp_mode:
+                    exp_mode = wlmExp_auto
+                # apply changes from operator
+                elif "EXP_AUTO" in obj_recv and obj_recv["EXP_AUTO"] == 1:
                     wlm.setExposureMode(ch, True)
                     exp_mode = True
                 elif "EXP_AUTO" in obj_recv and obj_recv["EXP_AUTO"] == 0:
                     wlm.setExposureMode(ch, False)
                     exp_mode = False
-                else:
-                    exp_mode = wlm.getExposureMode(ch)
 
                 if not exp_mode:
-                    
-                    if "EXP_UP" in obj_recv:
+
+                    wlmExp_up = wlm.getExposure(ch, 1)
+                    # take changes from wavemeter
+                    if wlmExp_up != exp_up:
+                        exp_up = wlmExp_up
+                    # apply changes from operator
+                    elif "EXP_UP" in obj_recv:
                         # mode 1 for interferometer
                         wlm.setExposure(ch, 1, obj_recv["EXP_UP"])
-
-                    if "EXP_DOWN" in obj_recv:
+                    
+                    wlmExp_down = wlm.getExposure(ch, 2)
+                    # take changes from wavemeter
+                    if wlmExp_down != exp_down:
+                        exp_down = wlmExp_down
+                    # apply changes from operator
+                    elif "EXP_DOWN" in obj_recv:
                         # mode 2 for wide interferometer
                         wlm.setExposure(ch, 2, obj_recv["EXP_DOWN"])
 
+                exp_up = wlm.getExposure(ch, 1)
+                exp_down = wlm.getExposure(ch, 2)
+                if (exp_up > 1000 or exp_down > 1000) and exp_mode:
+                    
+                    wlm.setExposureMode(ch, False)
+                    exp_mode = False
+                    wlm.setExposure(ch, 1, 2)
+                    exp_up = 2
+                    wlm.setExposure(ch, 2, 2)
+                    exp_down = 2
+
                 # change the numbers to str during transfer with json
-                obj_send["EXP_UP"] = str(wlm.getExposure(ch, 1))
-                obj_send["EXP_DOWN"] = str(wlm.getExposure(ch, 2))
+                obj_send["EXP_AUTO"] = 1 if exp_mode else 0
+                obj_send["EXP_UP"] = str(exp_up)
+                obj_send["EXP_DOWN"] = str(exp_down)
                 
                 if "PREC" in obj_recv:
                     prec = obj_recv["PREC"]
