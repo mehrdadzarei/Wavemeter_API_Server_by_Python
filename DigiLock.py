@@ -17,47 +17,59 @@ import matplotlib.pyplot as plt
 
 class digiClient:
 
+    # ptp is peak to peak amplitude
     def __init__(self):
 
         self.font = {'family': 'serif',
-                'color':  'darkred',
-                'weight': 'normal',
-                'size': 11,
-                }
+                    'color':  'darkred',
+                    'weight': 'normal',
+                    'size': 11,
+                    }
         
         self.upd_time = 5
         self.scan_amp = 5.0
         self.scan_amp2 = 0.3
         self.amp_max = 0.0
-        self.amp_thr = 0.025    # amp with scan amplitude 5 v
-        self.amp_thr2 = 0.08    # amp with scan amplitude 1 v
-        self.cnt = 0            # No. of scaning to find the peak
+        self.prev_ptp = -1
+        self.cnt = 0                    # No. of scaning to find the peak
         self.lock_point = 0
         self.nounlock = 0
         self.uncnt = 0            # No. of checking unclocked
         self.vol_offset = 0
-
-        PORT = 60001
-        SERVER = "192.168.0.175" # private
-        self.ADDR = (SERVER, PORT)
         self.FORMAT = "utf-8"
         
-        print(self.connect())
-
     def __del__(self):
 
-        self.client.close()
+        try:
+            self.client.close()
+        except:
+            pass
     
-    def connect(self):
+    def connect(self, ip = "192.168.0.175", port = 60001):
 
-        self.client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.client.connect(self.ADDR)
-        self.client.settimeout(20)
-        msg = self.recive(1024)
-        self.client.settimeout(1)
+        ADDR = (ip, port)
 
-        return msg
+        try:
+            
+            self.client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.client.connect(ADDR)
+            self.client.settimeout(20)
+            print(self.recive(1024))
+            self.client.settimeout(1)
 
+            return 1
+        except:
+
+            return 0
+
+    def set_peakTpeak(self, ptp = 0.04):
+
+        if self.prev_ptp != ptp:
+
+            self.amp_thr = ptp * 0.7        # amp with scan amplitude 5 v, 70% for error
+            self.amp_thr2 = ptp * 2.0       # amp with scan amplitude 1 v, 200% 
+            self.prev_ptp = ptp
+    
     def send(self, msg):
     
         # add \n before sending the command
@@ -431,18 +443,20 @@ class digiClient:
 
 
 
-digi = digiClient()
-digi.setting()
-err = digi.checking()
-if err == 0:
-    err = digi.checking()
-if err == 1:
+# digi = digiClient()
+# digi.connect(ip = "192.168.0.175", port = 60001)
+# digi.set_peakTpeak(ptp = 0.04)
+# digi.setting()
+# err = digi.checking()
+# if err == 0:
+#     err = digi.checking()
+# if err == 1:
     
-    err = digi.lock()
-    if err == 0:
-        err = digi.lock()
-    if err == 1:
-        digi.update()     # in [s]
+#     err = digi.lock()
+#     if err == 0:
+#         err = digi.lock()
+#     if err == 1:
+#         digi.update()     # in [s]
 
 
 # x, y = digi.get_graph()
@@ -458,7 +472,7 @@ if err == 1:
 
 
 
-digi.recive(8192)    # to clean the server bufer
-# wait before closeing the connection
-time.sleep(1)
-digi.client.close()
+# digi.recive(8192)    # to clean the server bufer
+# # wait before closeing the connection
+# time.sleep(1)
+# digi.client.close()

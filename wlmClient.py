@@ -178,7 +178,7 @@ class wlmClient:
     
     def getWavelength(self, ch = 1):
 
-        obj_send = {"CH": ch, "WAVEL": 1}
+        obj_send = {"WLM_RUN": 1, "CH": ch, "WAVEL": 1}
         data = json.dumps(obj_send)
         message = data.encode(self.format)
         err = self.my_send(message)
@@ -207,7 +207,7 @@ class wlmClient:
 
     def getFrequency(self, ch = 1):
 
-        obj_send = {"CH": ch, "FREQ": 1}
+        obj_send = {"WLM_RUN": 1, "CH": ch, "FREQ": 1}
         data = json.dumps(obj_send)
         message = data.encode(self.format)
         err = self.my_send(message)
@@ -236,7 +236,7 @@ class wlmClient:
 
     def getSpectrum(self, ch = 1):
 
-        obj_send = {"CH": ch, "SPEC": 1}
+        obj_send = {"WLM_RUN": 1, "CH": ch, "SPEC": 1}
         data = json.dumps(obj_send)
         message = data.encode(self.format)
         err = self.my_send(message)
@@ -265,7 +265,7 @@ class wlmClient:
 
     def getAll(self, ch = 1):
 
-        obj_send = {"CH": ch, "WAVEL": 1, "FREQ": 1, "SPEC": 1}
+        obj_send = {"WLM_RUN": 1, "CH": ch, "WAVEL": 1, "FREQ": 1, "SPEC": 1}
         data = json.dumps(obj_send)
         message = data.encode(self.format)
         err = self.my_send(message)

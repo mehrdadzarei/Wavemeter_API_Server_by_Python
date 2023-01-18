@@ -15,6 +15,7 @@ import socket
 import sys
 from wlmConst import *
 import wavelength_meter
+import DigiLock
 
 
 
@@ -148,12 +149,16 @@ def handle_client(conn, addr):
     conn.settimeout(time_out)
 
     connected = True
+    
     wlm_state = True
     ch = 1
     switch_mode = -1
     exp_mode = False
     exp_up = -1
     exp_down = -1
+
+    digi_state = True
+    digi_con = 1
 
     while connected:
 
@@ -286,6 +291,40 @@ def handle_client(conn, addr):
                     obj_send["RATIO"] = str(ratio)
                     obj_send["SPEC"] = spectrum_list
                     
+            if "TRANSFER_LOCK" in obj_recv and obj_recv["TRANSFER_LOCK"] == 1:
+
+                if digi_state:
+
+                    digi_state = False
+
+                    if "DIGI_IP" in obj_recv:
+                        digi_ip = obj_recv["DIGI_IP"]
+                    else:
+                        digi_ip = "192.168.0.175"
+
+                    if "DIGI_PORT" in obj_recv:
+                        digi_port = obj_recv["DIGI_PORT"]
+                    else:
+                        digi_port = 60001
+
+                    digi = DigiLock.digiClient()
+                    digi_con = digi.connect(ip = digi_ip, port = digi_port)
+                    
+                    if digi_con == 0:
+                        digi_state = True
+                    else:
+                        digi.setting()
+            
+                if digi_con:
+
+                    if "PTP_LVL" in obj_recv:
+                        ptp_lvl = obj_recv["PTP_LVL"]
+                    else:
+                        ptp_lvl = 0.04
+                    digi.set_peakTpeak(ptp = ptp_lvl)
+
+                obj_send["TRANSFER_LOCK"] = digi_con
+
             obj_send["SEND"] = " "
             data = json.dumps(obj_send)
 
