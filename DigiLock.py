@@ -54,7 +54,11 @@ class digiClient:
             self.client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.client.connect(ADDR)
             self.client.settimeout(20)
-            print(self.recive(1024))
+            msg = self.recive(1024)
+            # to be sure is not connected to DMS on port 60000
+            if len(msg) == 0 or "Welcome to DigiLock110 remote interface!" not in msg:
+                self.client.close()
+                return 0
             self.client.settimeout(1)
 
             return 1

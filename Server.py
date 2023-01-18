@@ -13,6 +13,7 @@ import json
 import threading
 import socket
 import sys
+from time import sleep
 from wlmConst import *
 import wavelength_meter
 import DigiLock
@@ -28,8 +29,15 @@ FORMAT = "utf-8"
 DISCONNECT_MESSAGE = "!DISCONNECT"
 time_out = 20.0
 
+digi_update = False
+digi_state = True
+digi_con = 0
+ptp_lvl = 0.04
+
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server.bind(ADDR)
+wlm = wavelength_meter.WavelengthMeter(dllpath = str(sys.argv[3]), WlmVer = int(sys.argv[4]))
+digi = DigiLock.digiClient()
 
 
 
@@ -143,11 +151,34 @@ def my_recv(conn):
 
     return ''.join(chunks)
 
+def handle_digi(ip, port):
+
+    global digi_update, digi_con, ptp_lvl
+
+    digi_con = digi.connect(ip = ip, port = port)
+
+    if digi_con == 0:
+        digi_update = True
+        return
+    else:
+        digi.setting()
+
+    while digi_con:
+
+        digi.set_peakTpeak(ptp = ptp_lvl)
+
+        digi_update = True
+        sleep(1)
+
+    digi.__del__()
+
 def handle_client(conn, addr):
     
     print(f"[NEW CONNECTION] {addr} connected.")
     conn.settimeout(time_out)
 
+    global digi_state, digi_update, digi_con, ptp_lvl
+    
     connected = True
     
     wlm_state = True
@@ -157,8 +188,10 @@ def handle_client(conn, addr):
     exp_up = -1
     exp_down = -1
 
+    digi_update = False
     digi_state = True
-    digi_con = 1
+    digi_con = 0
+    ptp_lvl = 0.04
 
     while connected:
 
@@ -181,13 +214,13 @@ def handle_client(conn, addr):
             if "STATUS" in obj_recv and obj_recv["STATUS"] == DISCONNECT_MESSAGE:
             
                 connected = False
+                digi_con = 0
                 continue
             
             if "WLM_RUN" in obj_recv and obj_recv["WLM_RUN"] == 1:
 
                 if wlm_state:
                     wlm_state = False
-                    wlm = wavelength_meter.WavelengthMeter(dllpath = str(sys.argv[3]), WlmVer = int(sys.argv[4]))
                     wlm.run(action = 'show')    # show or hide
                     wlm.measurement(cCtrlStartMeasurement)   # state : cCtrlStopAll, cCtrlStartMeasurement
             
@@ -274,12 +307,16 @@ def handle_client(conn, addr):
                     wavelength = f'{wlm.getWavelength(ch):.{prec}f}'
                     # wavelength = '{:.5f}'.format(round(wlm.getWavelength(ch), 6))
                     obj_send["WAVEL"] = wavelength
+                else:
+                    obj_send["WAVEL"] = "None"
 
                 if "FREQ" in obj_recv and obj_recv["FREQ"] == 1:
                     # if your digits are variable use this
                     freq = f'{wlm.getFrequency(ch):.{prec}f}'
                     # freq = '{:.5f}'.format(round(wlm.getFrequency(ch), 6))
                     obj_send["FREQ"] = freq
+                else:
+                    obj_send["FREQ"] = "None"
                     
                 if "SPEC" in obj_recv and obj_recv["SPEC"] == 1:
                     
@@ -290,11 +327,13 @@ def handle_client(conn, addr):
 
                     obj_send["RATIO"] = str(ratio)
                     obj_send["SPEC"] = spectrum_list
+                else:
+                    obj_send["RATIO"] = "None"
                     
             if "TRANSFER_LOCK" in obj_recv and obj_recv["TRANSFER_LOCK"] == 1:
 
                 if digi_state:
-
+                    
                     digi_state = False
 
                     if "DIGI_IP" in obj_recv:
@@ -307,23 +346,27 @@ def handle_client(conn, addr):
                     else:
                         digi_port = 60001
 
-                    digi = DigiLock.digiClient()
-                    digi_con = digi.connect(ip = digi_ip, port = digi_port)
+                    digi_thread = threading.Thread(target=handle_digi, args=(digi_ip, digi_port))
+                    digi_thread.start()
                     
-                    if digi_con == 0:
+                if "PTP_LVL" in obj_recv:
+                    ptp_lvl = obj_recv["PTP_LVL"]
+                else:
+                    ptp_lvl = 0.04
+                    
+                if digi_update:
+
+                    digi_update = False
+                    obj_send["TRANSFER_LOCK"] = digi_con
+                    if not digi_con:
                         digi_state = True
-                    else:
-                        digi.setting()
-            
-                if digi_con:
+                else:
+                    obj_send["TRANSFER_LOCK"] = 2       # no update
 
-                    if "PTP_LVL" in obj_recv:
-                        ptp_lvl = obj_recv["PTP_LVL"]
-                    else:
-                        ptp_lvl = 0.04
-                    digi.set_peakTpeak(ptp = ptp_lvl)
-
-                obj_send["TRANSFER_LOCK"] = digi_con
+            else:
+                digi_con = 0
+                digi_state = True
+                digi_update = False
 
             obj_send["SEND"] = " "
             data = json.dumps(obj_send)
@@ -337,12 +380,10 @@ def handle_client(conn, addr):
                 connected = False
                 continue
 
-            # time.sleep(0.001)
-
         except Exception:
             
             print(f"[ERROR] connection {addr} is closing with error...")
-            connected = False
+            digi_con = 0
             conn.close()
 
             return

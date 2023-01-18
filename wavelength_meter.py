@@ -79,38 +79,38 @@ class WavelengthMeter:
         # run High Finesse Wavelength Meter
         self.res = self.dll.ControlWLMEx(self.action, 0, ctypes.c_long(self.ver), 10000, 0)
 
-        # check status
-        if self.res == flErrUnknownError:
+        # # check status
+        # if self.res == flErrUnknownError:
 
-            print('Unknown Error')
+        #     print('Unknown Error')
 
-        if self.res == flErrTemperatureError:
+        # if self.res == flErrTemperatureError:
 
-            print('Temperature Error')
+        #     print('Temperature Error')
 
-        if self.res == flErrUnknownSN:
+        # if self.res == flErrUnknownSN:
 
-            print('Unknown Serial Number')
+        #     print('Unknown Serial Number')
 
-        if self.res == flErrUnknownDeviceError:
+        # if self.res == flErrUnknownDeviceError:
 
-            print('Unknown Device Error')
+        #     print('Unknown Device Error')
 
-        if self.res == flErrUSBError:
+        # if self.res == flErrUSBError:
 
-            print('USB Error')
+        #     print('USB Error')
 
-        if self.res == flErrDriverError:
+        # if self.res == flErrDriverError:
 
-            print('Driver Error')
+        #     print('Driver Error')
 
-        if self.res == flErrDeviceNotFound:
+        # if self.res == flErrDeviceNotFound:
 
-            print('Device Not Found')
+        #     print('Device Not Found')
 
         if self.res == flServerStarted:
 
-            print('High Finesse Wavelength Meter Started Successfully!')
+            # print('High Finesse Wavelength Meter Started Successfully!')
             
             self.dll.SetPattern(self.index, cPatternEnable)
             size = self.dll.GetPatternItemSize(self.index)                              # the size dosen't change for pattern
