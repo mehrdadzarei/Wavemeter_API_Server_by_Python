@@ -13,7 +13,7 @@ import json
 import threading
 import socket
 import sys
-from time import sleep
+import time
 from wlmConst import *
 import wavelength_meter
 import DigiLock
@@ -32,6 +32,7 @@ time_out = 20.0
 digi_update = False
 digi_state = True
 digi_con = 0
+digi_err = 1            # 1 no error, 0 error
 ptp_lvl = 0.04
 
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -153,23 +154,50 @@ def my_recv(conn):
 
 def handle_digi(ip, port):
 
-    global digi_update, digi_con, ptp_lvl
+    global digi_update, digi_con, digi_err, ptp_lvl
 
     digi_con = digi.connect(ip = ip, port = port)
 
     if digi_con == 0:
         digi_update = True
         return
-    else:
-        digi.setting()
+    
+    digi.set_peakTpeak(ptp = ptp_lvl)
+    digi.setting()
+    digi_err = digi.checking()
+    if digi_err == 0:                        # try one more time
+        digi_err = digi.checking()
+    if digi_err == 1:
+        digi_err = digi.lock()
+        if digi_err == 0:                   # try one more time
+            digi_err = digi.lock()   
 
-    while digi_con:
+    upd_t = 2           # update every 2 s
+    t1 = time.time()    # start timing
+    while digi_con and digi_err:
+
+        # refresh digilock connection every 100 s to avoid freezing
+        if (time.time() - t1) > 99:
+
+            digi.__del__()
+            time.sleep(1)
+            digi_con = digi.connect(ip = ip, port = port)
+
+            if digi_con == 0:
+                digi_update = True
+                return
+
+            t1 = time.time()    # restart timing
 
         digi.set_peakTpeak(ptp = ptp_lvl)
+        digi_err, upd_t = digi.check_lock()
 
         digi_update = True
-        sleep(1)
+        time.sleep(upd_t)
 
+    if digi_err == 0:
+        digi_update = True
+    
     digi.__del__()
 
 def handle_client(conn, addr):
@@ -177,7 +205,7 @@ def handle_client(conn, addr):
     print(f"[NEW CONNECTION] {addr} connected.")
     conn.settimeout(time_out)
 
-    global digi_state, digi_update, digi_con, ptp_lvl
+    global digi_state, digi_update, digi_con, digi_err, ptp_lvl
     
     connected = True
     
@@ -191,6 +219,7 @@ def handle_client(conn, addr):
     digi_update = False
     digi_state = True
     digi_con = 0
+    digi_err = 1
     ptp_lvl = 0.04
 
     while connected:
@@ -357,13 +386,19 @@ def handle_client(conn, addr):
                 if digi_update:
 
                     digi_update = False
+                    
                     obj_send["TRANSFER_LOCK"] = digi_con
-                    if not digi_con:
+                    obj_send["ERROR_STATE"] = digi_err
+                    
+                    if digi_con == 0 or digi_err == 0:
+                        obj_send["TRANSFER_LOCK"] = 0       # overwrite, in case only error is 0
                         digi_state = True
                 else:
                     obj_send["TRANSFER_LOCK"] = 2       # no update
+                    obj_send["ERROR_STATE"] = 1         # no error
 
             else:
+                digi_err = 1
                 digi_con = 0
                 digi_state = True
                 digi_update = False

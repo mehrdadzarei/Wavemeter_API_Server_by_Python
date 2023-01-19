@@ -11,13 +11,12 @@
 
 import socket
 import time
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 
 
 
 class digiClient:
 
-    # ptp is peak to peak amplitude
     def __init__(self):
 
         self.font = {'family': 'serif',
@@ -26,21 +25,28 @@ class digiClient:
                     'size': 11,
                     }
         
-        self.upd_time = 5
         self.scan_amp = 5.0
         self.scan_amp2 = 0.3
         self.amp_max = 0.0
+        self.amp_thr = 0.04 * 0.7        # amp with scan amplitude 5 v, 70% for error
+        self.amp_thr2 = 0.04 * 2.0       # amp with scan amplitude 1 v, 200% 
         self.prev_ptp = -1
-        self.cnt = 0                    # No. of scaning to find the peak
+        self.cnt = 0                     # No. of scaning to find the peak
         self.lock_point = 0
-        self.nounlock = 0
-        self.uncnt = 0            # No. of checking unclocked
+        self.uncnt = 0                   # No. of checking unclocked
         self.vol_offset = 0
+        self.shift_list = [1, 1]
+        self.shift_cnt = 0
+
         self.FORMAT = "utf-8"
         
     def __del__(self):
 
         try:
+            
+            self.recive(8192)    # to clean the server bufer
+            # wait before closeing the connection
+            time.sleep(1)
             self.client.close()
         except:
             pass
@@ -68,6 +74,7 @@ class digiClient:
 
     def set_peakTpeak(self, ptp = 0.04):
 
+        # ptp is peak to peak amplitude
         if self.prev_ptp != ptp:
 
             self.amp_thr = ptp * 0.7        # amp with scan amplitude 5 v, 70% for error
@@ -79,7 +86,10 @@ class digiClient:
         # add \n before sending the command
         msg += "\n"
         message = msg.encode(self.FORMAT)
-        self.client.send(message)
+        try:
+            self.client.send(message)
+        except:
+            pass
         time.sleep(0.1)     # have to put this delay
     
     def recive(self, n):
@@ -164,6 +174,9 @@ class digiClient:
 
     def setting(self):
     
+        self.send("function:view=Lock")
+        self.send("display:view=Autolock")
+        
         self.send("autolock:lock:enable=false")
         
         self.send("autolock:enable=true")
@@ -189,56 +202,16 @@ class digiClient:
         self.send("scan:output=SC110 out")
         self.send("scan:enable=true")
         time.sleep(0.5)       # to start new scan
-    
-    def checking(self):
-    
-        x, y = self.get_graph()
-        try:
-            amp = max(y) - min(y)
-            # print(amp)
-        except :
-            time.sleep(1)
-            err = self.checking()
-            return err
- 
-        if amp > self.amp_thr2:
             
-            try:
-                # set the peak to the center
-                offset = x[y.index(min(y))]
-                command = "offset:value=%.4f" %offset
-                self.send(command)
-                command = "scan:amplitude=%.4f" %self.scan_amp2
-                self.send(command)
-                time.sleep(1)
-                err = 1
-            except :
-                err = 0
-        else:
-        
-            err, offset = self.get_comm("offset:value", "f")
-            if err == 0:
-                err, offset = self.get_comm("offset:value", "f")
-            # print(offset)
-            err = self.find_peak(offset, 12)
-            if err == 0:
-
-                offset = 0.0
-                command = "offset:value=%.4f" %offset
-                self.send(command)
-                err = self.find_peak(offset, 24)
-                if err == 0:
-                    
-                    command = "offset:value=%.4f" %offset
-                    self.send(command)
-        
-        return err
-        
     def find_peak(self, init_offset, no_step):
     
-        self.cnt = 0
         command = "scan:amplitude=%.4f" %self.scan_amp
         self.send(command)
+        
+        if self.shift_list[0] < 0:          # start scaning from left
+            self.cnt = no_step - 1
+        else:
+            self.cnt = 0
         
         while True:
         
@@ -252,7 +225,7 @@ class digiClient:
 
                 try:
 
-                    # set the peak to the center
+                    # shift the peak to the center
                     offset = x[y.index(min(y))]
                     command = "offset:value=%.4f" %offset
                     self.send(command)
@@ -296,6 +269,9 @@ class digiClient:
                         offset = x[len(x) - 1]
                     except :
                         continue
+                    if offset > 90:             # don't apply more than of 90 v
+                        self.cnt = no_step - 1
+                        continue
                     command = "offset:value=%.4f" %offset
                     self.send(command)
                     command = "scan:amplitude=%.4f" %self.scan_amp
@@ -307,6 +283,9 @@ class digiClient:
                         offset = init_offset
                     else:
                         offset = x[0]
+                    if offset < -90:             # don't apply less than of -90 v
+                        self.cnt = no_step * 2
+                        continue
                     command = "offset:value=%.4f" %offset
                     self.send(command)
                     command = "scan:amplitude=%.4f" %self.scan_amp
@@ -318,6 +297,51 @@ class digiClient:
 
                 time.sleep(1)
     
+    def checking(self):
+    
+        x, y = self.get_graph()
+        try:
+            amp = max(y) - min(y)
+            # print(amp)
+        except:
+            time.sleep(1)
+            err = self.checking()
+            return err
+ 
+        if amp > self.amp_thr2:
+            
+            try:
+                # shift the peak to the center
+                offset = x[y.index(min(y))]
+                command = "offset:value=%.4f" %offset
+                self.send(command)
+                command = "scan:amplitude=%.4f" %self.scan_amp2
+                self.send(command)
+                time.sleep(1)
+                err = 1
+            except :
+                err = 0
+        else:
+        
+            err, offset = self.get_comm("offset:value", "f")
+            if err == 0:
+                err, offset = self.get_comm("offset:value", "f")
+            # print(offset)
+            err = self.find_peak(offset, 6)
+            if err == 0:
+
+                offset = 0.0
+                command = "offset:value=%.4f" %offset
+                self.send(command)
+                self.shift_list[0] = 1          # don't care about direction
+                err = self.find_peak(offset, 30)
+                if err == 0:
+                    
+                    command = "offset:value=%.4f" %offset
+                    self.send(command)
+        
+        return err
+
     def lock(self):
     
         # stabilizing data
@@ -325,7 +349,7 @@ class digiClient:
         x, y = self.get_graph()
         try:
             
-            # set the peak to the center
+            # shift the peak to the center
             offset = x[y.index(min(y))]
             command = "offset:value=%.4f" %offset
             self.send(command)
@@ -366,13 +390,14 @@ class digiClient:
             err, offset = self.get_comm("offset:value", "f")
             if err == 0:
                 offset = self.lock_point
-            err = self.find_peak(offset, 12)
+            err = self.find_peak(offset, 6)
             if err == 0:
 
                 offset = 0.0
                 command = "offset:value=%.4f" %offset
                 self.send(command)
-                err = self.find_peak(offset, 24)
+                self.shift_list[0] = 1          # don't care about direction
+                err = self.find_peak(offset, 30)
                 if err == 0:
                     
                     command = "offset:value=%.4f" %offset
@@ -388,33 +413,42 @@ class digiClient:
         try:
             
             err = 1
-            self.upd_time = 5
+            upd_time = 2
             amp_min = min(y)
             lp = x[y.index(amp_min)]
             shift = self.lock_point - lp
+            if self.shift_cnt > 1:
+                self.shift_cnt = 0
+            self.shift_list[self.shift_cnt] = shift
+            self.shift_cnt +=1
 
-            print("shift is: %.4f" %shift)#, "\t", "offset voltage is: %.4f" %self.vol_offset)
-            self.lock_point = lp
+            # print("shift is: %.4f" %shift)#, "\t", "offset voltage is: %.4f" %self.vol_offset)
             
             if abs(shift) > 0.05 and abs(shift) < 0.25:
 
                 self.uncnt += 1
-                self.upd_time = 0.01
+                upd_time = 0.01
+                err = 2
+                # for safety, to be sure is unlocked
                 if self.uncnt == 2:
 
                     self.uncnt = 0
                     self.send("autolock:lock:enable=false")
-                    self.nounlock += 1
-                    print("unlocked! %d" %self.nounlock)
-                    self.upd_time = 5
                     err = 0
             elif abs(shift) >= 0.25:
 
                 self.uncnt = 0
                 self.send("autolock:lock:enable=false")
-                self.nounlock += 1
-                print("unlocked! %d" %self.nounlock)
+                upd_time = 0.01
                 err = 0   
+            
+            if err == 0:
+                self.cnt = 0
+                command = "offset:value=%.4f" %self.lock_point      # back to lock point
+                self.send(command)
+                err = self.lock()
+
+            self.lock_point = lp
             
             # if amp_min > self.amp_max * 0.9:
             #     self.send("autolock:lock:enable=false")
@@ -424,27 +458,8 @@ class digiClient:
         except :
             pass
 
-        return err
-    
-    def update(self):
-
-        cnt = 0
-        while True:
-
-            cnt += 1
-            time.sleep(self.upd_time)
-            err = self.check_lock()
-            if err == 0:
-                err = self.lock()
-                if err == 0:
-                    break
-
-            if cnt == 20:
-                self.client.close()
-                time.sleep(1)
-                self.connect()
-                cnt = 0
-
+        return err, upd_time
+ 
 
 
 # digi = digiClient()
@@ -473,10 +488,4 @@ class digiClient:
 # plt.show()
 
 
-
-
-
-# digi.recive(8192)    # to clean the server bufer
-# # wait before closeing the connection
-# time.sleep(1)
-# digi.client.close()
+# digi.__del__()
