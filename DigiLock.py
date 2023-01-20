@@ -11,7 +11,6 @@
 
 import socket
 import time
-# import matplotlib.pyplot as plt
 
 
 
@@ -19,12 +18,6 @@ class digiClient:
 
     def __init__(self):
 
-        self.font = {'family': 'serif',
-                    'color':  'darkred',
-                    'weight': 'normal',
-                    'size': 11,
-                    }
-        
         self.scan_amp = 5.0
         self.scan_amp2 = 0.3
         self.amp_max = 0.0
@@ -478,14 +471,7 @@ class digiClient:
 #         digi.update()     # in [s]
 
 
-# x, y = digi.get_graph()
-
-# plt.plot(x, y, label='data')
-# # plt.title('Life time of Sr atoms in the Lattice', fontdict=self.font)
-# # plt.legend()
-# plt.xlabel('SC110 out [V]', fontdict=digi.font)
-# plt.ylabel('Main in [V]', fontdict=digi.font)
-# plt.show()
-
 
 # digi.__del__()
+
+

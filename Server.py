@@ -165,16 +165,17 @@ def handle_digi(ip, port):
     digi.set_peakTpeak(ptp = ptp_lvl)
     digi.setting()
     digi_err = digi.checking()
-    if digi_err == 0:                        # try one more time
+    # check digi_con maybe it is changed by operator
+    if digi_err == 0 and digi_con == 1:                        # try one more time
         digi_err = digi.checking()
-    if digi_err == 1:
+    if digi_err == 1 and digi_con == 1:
         digi_err = digi.lock()
-        if digi_err == 0:                   # try one more time
+        if digi_err == 0 and digi_con == 1:                   # try one more time
             digi_err = digi.lock()   
 
     upd_t = 2           # update every 2 s
     t1 = time.time()    # start timing
-    while digi_con and digi_err:
+    while digi_con != 0 and digi_err != 0:
 
         # refresh digilock connection every 100 s to avoid freezing
         if (time.time() - t1) > 99:
@@ -190,6 +191,9 @@ def handle_digi(ip, port):
             t1 = time.time()    # restart timing
 
         digi.set_peakTpeak(ptp = ptp_lvl)
+        
+        digi_err = 2        # don't do anything before returning from check_lock which may takes long time
+        digi_update = True
         digi_err, upd_t = digi.check_lock()
 
         digi_update = True
@@ -361,9 +365,25 @@ def handle_client(conn, addr):
                     
             if "TRANSFER_LOCK" in obj_recv and obj_recv["TRANSFER_LOCK"] == 1:
 
+                if digi_update:
+
+                    digi_update = False
+                    
+                    obj_send["TRANSFER_LOCK"] = digi_con
+                    obj_send["ERROR_STATE"] = digi_err
+                    
+                    if digi_con == 0 or digi_err == 0:
+                        obj_send["TRANSFER_LOCK"] = 0       # overwrite, in case only error is 0
+                        digi_state = True
+                else:
+                    obj_send["TRANSFER_LOCK"] = 2       # no update
+                    obj_send["ERROR_STATE"] = 1         # no error
+                
                 if digi_state:
                     
                     digi_state = False
+                    obj_send["ERROR_STATE"] = 2         # for the first time hold on till digi is locked
+                    digi_err = 2                        # don't do anything for the first time which may takes long time
 
                     if "DIGI_IP" in obj_recv:
                         digi_ip = obj_recv["DIGI_IP"]
@@ -382,26 +402,15 @@ def handle_client(conn, addr):
                     ptp_lvl = obj_recv["PTP_LVL"]
                 else:
                     ptp_lvl = 0.04
-                    
-                if digi_update:
-
-                    digi_update = False
-                    
-                    obj_send["TRANSFER_LOCK"] = digi_con
-                    obj_send["ERROR_STATE"] = digi_err
-                    
-                    if digi_con == 0 or digi_err == 0:
-                        obj_send["TRANSFER_LOCK"] = 0       # overwrite, in case only error is 0
-                        digi_state = True
-                else:
-                    obj_send["TRANSFER_LOCK"] = 2       # no update
-                    obj_send["ERROR_STATE"] = 1         # no error
 
             else:
-                digi_err = 1
-                digi_con = 0
-                digi_state = True
-                digi_update = False
+                
+                if digi_err != 2:       # don't change parameters if it is in the check_lock
+
+                    digi_err = 1
+                    digi_con = 0
+                    digi_state = True
+                    digi_update = False
 
             obj_send["SEND"] = " "
             data = json.dumps(obj_send)
