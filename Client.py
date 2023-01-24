@@ -3,7 +3,7 @@
 # @date 2021.07.28
 # @version 0
 #
-# @brief wlm client to get information of wavelength meter from server
+# @brief client to get wavelength meter information from server
 #
 ######################################################################################################
 
@@ -12,7 +12,6 @@
 import json
 import socket
 import numpy as np
-# import matplotlib.pyplot as plt
 
 
 
@@ -23,6 +22,10 @@ class wlmClient:
         self.header = 64
         self.format = "utf-8"
         self.discon_msg = "!DISCONNECT"
+        self.switch = 1
+        self.exp = 1
+        self.expup = 3
+        self.expdown = 3
         self.wavel = 0
         self.freq = 0
         self.ratio = 1
@@ -159,6 +162,18 @@ class wlmClient:
 
     def extractData(self, obj_recv = {}):
 
+        if "SWITCH_MODE" in obj_recv:
+            self.switch = obj_recv["SWITCH_MODE"]
+
+        if "EXP_AUTO" in obj_recv:
+            self.exp = obj_recv["EXP_AUTO"]
+
+        if "EXP_UP" in obj_recv:
+            self.expup = obj_recv["EXP_UP"]
+
+        if "EXP_DOWN" in obj_recv:
+            self.expdown = obj_recv["EXP_DOWN"]
+        
         if "WAVEL" in obj_recv:
             self.wavel = obj_recv["WAVEL"]
 
@@ -175,6 +190,189 @@ class wlmClient:
 
             self.spectrum_list = np.divide(self.spec, self.ratio)
             self.spectrum_list = np.interp(np.linspace(0, 1024, 2048), np.arange(1024), self.spectrum_list)
+    
+    def setSwitchMode(self, mode = 1):
+
+        # mode 0 for single mode and 1 for switch mode
+        obj_send = {"WLM_RUN": 1, "SWITCH_MODE": mode}
+        data = json.dumps(obj_send)
+        message = data.encode(self.format)
+        err = self.my_send(message)
+
+        if err == 0:
+            return -31          # retry again
+        elif err == -1:
+            self.client.close()
+            return -30          # connection is closed
+    
+    def getSwitchMode(self):
+
+        obj_send = {"WLM_RUN": 1}
+        data = json.dumps(obj_send)
+        message = data.encode(self.format)
+        err = self.my_send(message)
+
+        if err == 0:
+            return -31          # retry again
+        elif err == -1:
+            self.client.close()
+            return -30          # connection is closed
+
+        msg = self.my_recv()
+        if msg == '0':
+            return -31          # retry again
+        elif msg == '-1':
+            self.client.close()
+            return -30          # connection is closed
+
+        try:
+            obj_recv = json.loads(msg)
+        except :
+            obj_recv = {}
+        
+        self.extractData(obj_recv)
+
+        return self.switch
+    
+    def setExpoAuto(self, mode = 1):
+
+        # mode 0 for manual expo and 1 for auto axpo
+        obj_send = {"WLM_RUN": 1, "EXP_AUTO": mode}
+        data = json.dumps(obj_send)
+        message = data.encode(self.format)
+        err = self.my_send(message)
+
+        if err == 0:
+            return -31          # retry again
+        elif err == -1:
+            self.client.close()
+            return -30          # connection is closed
+    
+    def getExpoAuto(self):
+
+        obj_send = {"WLM_RUN": 1}
+        data = json.dumps(obj_send)
+        message = data.encode(self.format)
+        err = self.my_send(message)
+
+        if err == 0:
+            return -31          # retry again
+        elif err == -1:
+            self.client.close()
+            return -30          # connection is closed
+
+        msg = self.my_recv()
+        if msg == '0':
+            return -31          # retry again
+        elif msg == '-1':
+            self.client.close()
+            return -30          # connection is closed
+
+        try:
+            obj_recv = json.loads(msg)
+        except :
+            obj_recv = {}
+        
+        self.extractData(obj_recv)
+
+        return self.exp
+    
+    def setExpUp(self, val = 3):
+
+        obj_send = {"WLM_RUN": 1, "EXP_UP": val}
+        data = json.dumps(obj_send)
+        message = data.encode(self.format)
+        err = self.my_send(message)
+
+        if err == 0:
+            return -31          # retry again
+        elif err == -1:
+            self.client.close()
+            return -30          # connection is closed
+
+    def getExpUp(self):
+
+        obj_send = {"WLM_RUN": 1}
+        data = json.dumps(obj_send)
+        message = data.encode(self.format)
+        err = self.my_send(message)
+
+        if err == 0:
+            return -31          # retry again
+        elif err == -1:
+            self.client.close()
+            return -30          # connection is closed
+
+        msg = self.my_recv()
+        if msg == '0':
+            return -31          # retry again
+        elif msg == '-1':
+            self.client.close()
+            return -30          # connection is closed
+
+        try:
+            obj_recv = json.loads(msg)
+        except :
+            obj_recv = {}
+        
+        self.extractData(obj_recv)
+
+        return self.expup
+    
+    def setExpDown(self, val = 3):
+
+        obj_send = {"WLM_RUN": 1, "EXP_DOWN": val}
+        data = json.dumps(obj_send)
+        message = data.encode(self.format)
+        err = self.my_send(message)
+
+        if err == 0:
+            return -31          # retry again
+        elif err == -1:
+            self.client.close()
+            return -30          # connection is closed
+
+    def getExpDown(self):
+
+        obj_send = {"WLM_RUN": 1}
+        data = json.dumps(obj_send)
+        message = data.encode(self.format)
+        err = self.my_send(message)
+
+        if err == 0:
+            return -31          # retry again
+        elif err == -1:
+            self.client.close()
+            return -30          # connection is closed
+
+        msg = self.my_recv()
+        if msg == '0':
+            return -31          # retry again
+        elif msg == '-1':
+            self.client.close()
+            return -30          # connection is closed
+
+        try:
+            obj_recv = json.loads(msg)
+        except :
+            obj_recv = {}
+        
+        self.extractData(obj_recv)
+
+        return self.expdown
+    
+    def setPrec(self, val = 5):
+
+        obj_send = {"WLM_RUN": 1, "PREC": val}
+        data = json.dumps(obj_send)
+        message = data.encode(self.format)
+        err = self.my_send(message)
+
+        if err == 0:
+            return -31          # retry again
+        elif err == -1:
+            self.client.close()
+            return -30          # connection is closed
     
     def getWavelength(self, ch = 1):
 
@@ -293,17 +491,4 @@ class wlmClient:
         return {"wavelength": self.wavel, "freq": self.freq, "spec": self.spectrum_list}
 
 
-
-# wlm = wlmClient()
-# wlm.connect()
-# wavel = wlm.getWavelength(7)
-# print(wavel)
-# freq = wlm.getFrequency(7)
-# print(freq)
-# spec = wlm.getSpectrum(7)
-# plt.plot(spec)
-# plt.show()
-# all = wlm.getAll(7)
-# print(all["freq"])
-# wlm.disconnect()
 

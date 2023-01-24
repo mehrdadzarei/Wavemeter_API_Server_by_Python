@@ -558,28 +558,3 @@ class digiClient:
         return err_con, err, upd_time
  
 
-
-# digi = digiClient()
-# digi.connect(ip = "192.168.0.175", port = 60001)
-# # time.sleep(10)
-# digi.set_peakTpeak(ptp = 0.04)
-# err_con = digi.setting()
-# # print(err_con)
-# err_con, err = digi.checking()
-# if err == 0:
-#     err_con, err = digi.checking()
-# if err_con == 1 and err == 1:
-    
-#     err_con, err = digi.lock()
-#     if err == 0:
-#         err_con, err = digi.lock()
-# up_t = 1
-# while err_con == 1:
-
-#     time.sleep(up_t)
-#     err_con, err, up_t = digi.check_lock()
-#     print(err_con)
-
-# digi.__del__()
-
-

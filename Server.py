@@ -30,6 +30,8 @@ FORMAT = "utf-8"
 DISCONNECT_MESSAGE = "!DISCONNECT"
 time_out = 20.0
 
+wlm_state = True
+
 # only one connection can connect to digi, others should be refused
 digi_ip = "192.168.0.175"
 digi_port = 60001
@@ -256,12 +258,12 @@ def handle_client(event, conn, addr):
     print(f"[NEW CONNECTION] {addr} connected at {now}")
     conn.settimeout(time_out)
 
-    global digi_ip, digi_port, digi_update, digi_state, transfer_lock, digi_con, digi_err, ptp_lvl
+    global wlm_state, digi_ip, digi_port, digi_update, digi_state, transfer_lock, digi_con, digi_err, ptp_lvl
     
     connected = True
     
-    wlm_state = True
     ch = 1
+    prec = 5
     switch_mode = -1
     exp_mode = False
     exp_up = -1
@@ -371,8 +373,6 @@ def handle_client(event, conn, addr):
                 
                 if "PREC" in obj_recv:
                     prec = obj_recv["PREC"]
-                else:
-                    prec = 5
                 
                 if "WAVEL" in obj_recv and obj_recv["WAVEL"] == 1:
                     # to keep laset digit if it is 0, we should use format
