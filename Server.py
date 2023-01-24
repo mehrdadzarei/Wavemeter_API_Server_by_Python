@@ -14,6 +14,7 @@ import threading
 import socket
 import sys
 import time
+from datetime import datetime
 from wlmConst import *
 import wavelength_meter
 import DigiLock
@@ -29,10 +30,14 @@ FORMAT = "utf-8"
 DISCONNECT_MESSAGE = "!DISCONNECT"
 time_out = 20.0
 
+# only one connection can connect to digi, others should be refused
+digi_ip = "192.168.0.175"
+digi_port = 60001
 digi_update = False
 digi_state = True
-digi_con = 0
-digi_err = 1            # 1 no error, 0 error
+transfer_lock = 0       # 0 don't lock, 1 lock
+digi_con = 0            # 0 not connected, 1 connected, 2 connecting
+digi_err = 2            # 1 no error, 0 error, 2 hold on it is locking
 ptp_lvl = 0.04
 
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -152,64 +157,106 @@ def my_recv(conn):
 
     return ''.join(chunks)
 
-def handle_digi(ip, port):
+def handle_digi():
 
-    global digi_update, digi_con, digi_err, ptp_lvl
+    global digi_ip, digi_port, digi_update, digi_state, transfer_lock, digi_con, digi_err, ptp_lvl
 
-    digi_con = digi.connect(ip = ip, port = port)
+    t1 = time.time()
+    while True:
 
-    if digi_con == 0:
-        digi_update = True
-        return
-    
-    digi.set_peakTpeak(ptp = ptp_lvl)
-    digi.setting()
-    digi_err = digi.checking()
-    # check digi_con maybe it is changed by operator
-    if digi_err == 0 and digi_con == 1:                        # try one more time
-        digi_err = digi.checking()
-    if digi_err == 1 and digi_con == 1:
-        digi_err = digi.lock()
-        if digi_err == 0 and digi_con == 1:                   # try one more time
-            digi_err = digi.lock()   
-
-    upd_t = 2           # update every 2 s
-    t1 = time.time()    # start timing
-    while digi_con != 0 and digi_err != 0:
-
-        # refresh digilock connection every 100 s to avoid freezing
-        if (time.time() - t1) > 99:
-
-            digi.__del__()
-            time.sleep(1)
-            digi_con = digi.connect(ip = ip, port = port)
-
-            if digi_con == 0:
-                digi_update = True
-                return
-
-            t1 = time.time()    # restart timing
-
-        digi.set_peakTpeak(ptp = ptp_lvl)
         
-        digi_err = 2        # don't do anything before returning from check_lock which may takes long time
-        digi_update = True
-        digi_err, upd_t = digi.check_lock()
+        # for the first time
+        if digi_con == 2:
+            
+            digi_con = digi.connect(ip = digi_ip, port = digi_port)
+            
+            if digi_con == 1:
 
-        digi_update = True
-        time.sleep(upd_t)
+                first_lock = 0
+                upd_t = 2           # update every 2 s
+                t1 = time.time()    # start timing
+        
+        if digi_con == 1:
+        
+            # refresh digilock connection every 100 s to avoid freezing
+            if (time.time() - t1) > 99:
 
-    if digi_err == 0:
-        digi_update = True
+                digi.__del__()
+                time.sleep(1)
+                digi_con = digi.connect(ip = digi_ip, port = digi_port)
+                
+                t1 = time.time()    # restart timing
+            
+            if transfer_lock == 1:
+                
+                if first_lock == 0:
+
+                    digi.set_peakTpeak(ptp = ptp_lvl)
+                    digi_con = digi.setting()
+                    if digi_con == 0:
+                        continue
+                    
+                    digi_err = 2        # don't do anything before locking which may takes long time
+                    digi_con, err = digi.checking()
+                    if digi_con == 0:
+                        continue
+                    
+                    # check digi_con maybe it is changed by operator
+                    if err == 0 and digi_con == 1:                        # try one more time
+                        
+                        digi_con, err = digi.checking()
+                        if digi_con == 0:
+                            continue
+                    
+                    if err == 1 and digi_con == 1:
+                        
+                        digi_con, err = digi.lock()
+                        if digi_con == 0:
+                            continue
+                        if err == 0 and digi_con == 1:                   # try one more time
+                            
+                            digi_con, err = digi.lock()
+                            if digi_con == 0:
+                                continue
+                    
+                    digi_err = err
+                    if digi_err == 0:
+                        transfer_lock = 0
+                        continue
+                    first_lock = 1
+                
+                digi.set_peakTpeak(ptp = ptp_lvl)
+                
+                digi_err = 2        # don't do anything before returning from check_lock which may takes long time
+                digi_con, digi_err, upd_t = digi.check_lock()
+                if digi_con == 0:
+                    continue
+                if digi_err == 0:
+
+                    digi_update = True
+                    time.sleep(1)       # wait to send data
+                    transfer_lock = 0
+                    continue
+
+            else:
+
+                if first_lock == 1:     # unlock if it was lock
+                    digi_con = digi.unlock()
+                    if digi_con == 0:
+                        continue
+                    first_lock = 0
+
+            time.sleep(upd_t)
+
+    # digi.__del__()
+
+def handle_client(event, conn, addr):
     
-    digi.__del__()
-
-def handle_client(conn, addr):
-    
-    print(f"[NEW CONNECTION] {addr} connected.")
+    now = datetime.now()
+    print(f"[NEW CONNECTION] {addr} connected at {now}")
     conn.settimeout(time_out)
 
-    global digi_state, digi_update, digi_con, digi_err, ptp_lvl
+    global digi_ip, digi_port, digi_update, digi_state, transfer_lock, digi_con, digi_err, ptp_lvl
     
     connected = True
     
@@ -219,12 +266,6 @@ def handle_client(conn, addr):
     exp_mode = False
     exp_up = -1
     exp_down = -1
-
-    digi_update = False
-    digi_state = True
-    digi_con = 0
-    digi_err = 1
-    ptp_lvl = 0.04
 
     while connected:
 
@@ -247,7 +288,6 @@ def handle_client(conn, addr):
             if "STATUS" in obj_recv and obj_recv["STATUS"] == DISCONNECT_MESSAGE:
             
                 connected = False
-                digi_con = 0
                 continue
             
             if "WLM_RUN" in obj_recv and obj_recv["WLM_RUN"] == 1:
@@ -363,54 +403,45 @@ def handle_client(conn, addr):
                 else:
                     obj_send["RATIO"] = "None"
                     
-            if "TRANSFER_LOCK" in obj_recv and obj_recv["TRANSFER_LOCK"] == 1:
+            if "DIGI_RUN" in obj_recv and obj_recv["DIGI_RUN"] == 1:
 
-                if digi_update:
+                lock = False
 
-                    digi_update = False
-                    
-                    obj_send["TRANSFER_LOCK"] = digi_con
-                    obj_send["ERROR_STATE"] = digi_err
-                    
-                    if digi_con == 0 or digi_err == 0:
-                        obj_send["TRANSFER_LOCK"] = 0       # overwrite, in case only error is 0
-                        digi_state = True
-                else:
-                    obj_send["TRANSFER_LOCK"] = 2       # no update
-                    obj_send["ERROR_STATE"] = 1         # no error
-                
+                if not digi_update:
+
+                    if "TRANSFER_LOCK" in obj_recv and transfer_lock == 0:
+                        transfer_lock = obj_recv["TRANSFER_LOCK"]
+                        digi_err = 2
+                    if "TRANSFER_LOCK" in obj_recv and obj_recv["TRANSFER_LOCK"] == 0:
+                        lock = True
+
+                    if "PTP_LVL" in obj_recv:
+                        ptp_lvl = obj_recv["PTP_LVL"]
+
                 if digi_state:
                     
                     digi_state = False
-                    obj_send["ERROR_STATE"] = 2         # for the first time hold on till digi is locked
-                    digi_err = 2                        # don't do anything for the first time which may takes long time
-
+                    
                     if "DIGI_IP" in obj_recv:
                         digi_ip = obj_recv["DIGI_IP"]
-                    else:
-                        digi_ip = "192.168.0.175"
 
                     if "DIGI_PORT" in obj_recv:
                         digi_port = obj_recv["DIGI_PORT"]
-                    else:
-                        digi_port = 60001
 
-                    digi_thread = threading.Thread(target=handle_digi, args=(digi_ip, digi_port))
-                    digi_thread.start()
-                    
-                if "PTP_LVL" in obj_recv:
-                    ptp_lvl = obj_recv["PTP_LVL"]
-                else:
-                    ptp_lvl = 0.04
-
-            else:
+                    # assigning after ip, port
+                    digi_con = 2            # connecting
+                    digi_err = 2            # hold on
                 
-                if digi_err != 2:       # don't change parameters if it is in the check_lock
-
-                    digi_err = 1
-                    digi_con = 0
+                obj_send["DIGI_RUN"] = digi_con
+                if lock:
+                    obj_send["TRANSFER_LOCK"] = 0       # if coming tranfer lock is 0 send back 0
+                else:
+                    obj_send["TRANSFER_LOCK"] = digi_err
+                
+                digi_update = False                     # change state after sending values
+                    
+                if digi_con == 0:
                     digi_state = True
-                    digi_update = False
 
             obj_send["SEND"] = " "
             data = json.dumps(obj_send)
@@ -426,31 +457,45 @@ def handle_client(conn, addr):
 
         except Exception:
             
-            print(f"[ERROR] connection {addr} is closing with error...")
-            digi_con = 0
+            now = datetime.now()
+            print(f"[ERROR] connection {addr} is closing with error at {now}")
             conn.close()
 
             return
 
-    print(f"[CLOSING] connection {addr} is closing...")
+        # check for stop
+        if event.is_set():
+            break
+
+    now = datetime.now()
+    print(f"[CLOSING] connection {addr} is closing at {now}")
     conn.close()
 
 def start():
 
     server.listen()
-    print(f"[LISTENING] Server is listening on {SERVER}:{PORT}")
-    cheking = True
-    while cheking:
+    print(f"[LISTENING] Server is listening on ({SERVER}:{PORT})")
+
+    # start thread for DigiLock
+    digi_thread = threading.Thread(target=handle_digi, args=())
+    digi_thread.start()
+
+    while True:
 
         conn, addr = server.accept()
-        thread = threading.Thread(target=handle_client, args=(conn, addr))
+        # create the event
+        event = threading.Event()
+        thread = threading.Thread(target=handle_client, args=(event, conn, addr))
         thread.start()
-        # cheking = False
-        print(f"[ACTIVE CONNECTIONS] {threading.activeCount() - 1}")
+        print(f"[ACTIVE CONNECTIONS] {threading.activeCount() - 2}")    # there are already 2 connections (main and digi)
+
+    # event.set()
+    # # wait for the new thread to finish
+    # thread.join()
 
 
-
-print("[STARTING] server is starting...")
+now = datetime.now()
+print(f"[STARTING] server is starting at {now}")
 start()
 
 

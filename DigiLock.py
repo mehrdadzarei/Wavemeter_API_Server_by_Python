@@ -53,13 +53,13 @@ class digiClient:
             self.client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.client.connect(ADDR)
             self.client.settimeout(20)
-            msg = self.recive(1024)
+            err_con, msg = self.recive(1024)
             # to be sure is not connected to DMS on port 60000
-            if len(msg) == 0 or "Welcome to DigiLock110 remote interface!" not in msg:
+            if err_con == 0 or len(msg) == 0 or "Welcome to DigiLock110 remote interface!" not in msg:
                 self.client.close()
                 return 0
             self.client.settimeout(1)
-
+            # print("done")
             return 1
         except:
 
@@ -76,20 +76,29 @@ class digiClient:
     
     def send(self, msg):
     
+        err = 1
         # add \n before sending the command
         msg += "\n"
         message = msg.encode(self.FORMAT)
         try:
             self.client.send(message)
-        except:
-            pass
+        # except ConnectionAbortedError:
+        #     err = 0
+        except Exception as e:
+            
+            # 10053 connection aborted, 10054 connection closed forcefuly
+            if e.args[0] == 10053 or e.args[0] == 10054:
+                err = 0
         time.sleep(0.1)     # have to put this delay
+
+        return err
     
     def recive(self, n):
     
         chunks = []
         bytes_recd = 0
-    
+        err = 1
+
         # recv msg
         while bytes_recd < n:
         
@@ -97,27 +106,38 @@ class digiClient:
             try:
                 chunk = self.client.recv(len_msg)
                 chunks.append(chunk.decode(self.FORMAT))
-            except :
+            except Exception as e:
+
+                # 10053 connection aborted, 10054 connection closed forcefuly
+                if e.args[0] == 10053 or e.args[0] == 10054:
+                    return 0, ''.join(chunks)
                 chunk = ''
             
             bytes_recd += len(chunk)
             if len(chunk) < len_msg:
                 n = bytes_recd
     
-        return ''.join(chunks)
+        return err, ''.join(chunks)
 
     def get_comm(self, comm= "offset:value", case = "f"):
         
         time.sleep(0.1)     # to be sure of data
-        self.recive(8192)
+        err_con, msg = self.recive(8192)
+        if err_con == 0:
+            return err_con, 0, 0
+
         comm += " ?"
-        self.send(comm)
-        data = self.recive(51200)
+        if self.send(comm) == 0:
+            return 0, 0, 0
+
+        err_con, data = self.recive(51200)
+        if err_con == 0:
+            return err_con, 0, 0
         try:
             data = data.split('=')
             data = (data[len(data) - 1].split('\r'))[0]
         except :
-            return 0, 0
+            return err_con, 0, 0
     
         if case == "f":
             
@@ -125,26 +145,35 @@ class digiClient:
                 data = float(data)
             except :
                 data = 0
-            return 1, data
+            return err_con, 1, data
         elif case == "i":
             
             try:
                 data = int(data)
             except :
                 data = 0
-            return 1, data
+            return err_con, 1, data
     
     def get_graph(self):
     
         time.sleep(0.1)     # to be sure of data
-        self.recive(8192)
-        self.send("autolock:display:graph ?")
+        err_con, msg = self.recive(8192)
+        if err_con == 0:
+            return err_con, 0, 0
+
+        if self.send("autolock:display:graph ?") == 0:
+            return 0, 0, 0
+
         time.sleep(0.5)
-        data = self.recive(51200)
+        err_con, data = self.recive(51200)
+        if err_con == 0:
+            return err_con, 0, 0
         
         if len(data) == 0:
-            x, y = self.get_graph()
-            return x, y
+            err_con, x, y = self.get_graph()
+            if err_con == 0:
+                return err_con, 0, 0
+            return err_con, x, y
     
         try:
             data = data.split('=')
@@ -163,43 +192,47 @@ class digiClient:
                 y.append(float((tmp[3].split('\r'))[0]))
             except :
                 break
-        return x, y
+        return err_con, x, y
 
     def setting(self):
     
-        self.send("function:view=Lock")
-        self.send("display:view=Autolock")
+        err = self.send("function:view=Lock")
+        err = self.send("display:view=Autolock")
         
-        self.send("autolock:lock:enable=false")
+        err = self.send("autolock:lock:enable=false")
         
-        self.send("autolock:enable=true")
-        self.send("autolock:input=Main in")
-        self.send("autolock:spectrum=Main in")
-        self.send("autolock:controller:pid1=false")
-        self.send("autolock:controller:pid2=true")
-        # self.send("autolock:window:channel=Main in")
-        # self.send("autolock:window:enable=true")
-        # self.send("autolock:window:maxin=1.400")
-        # self.send("autolock:window:maxout=1.400")
-        # self.send("autolock:window:minin=0.800")
-        # self.send("autolock:window:minout=0.800")
-        self.send("autolock:cursor:track=true")
-        self.send("autolock:cursor:snap=true")
-        self.send("autolock:smart:engage=true")
-        self.send("autolock:smart:setpoint=true")
+        err = self.send("autolock:enable=true")
+        err = self.send("autolock:input=Main in")
+        err = self.send("autolock:spectrum=Main in")
+        err = self.send("autolock:controller:pid1=false")
+        err = self.send("autolock:controller:pid2=true")
+        # err = self.send("autolock:window:channel=Main in")
+        # err = self.send("autolock:window:enable=true")
+        # err = self.send("autolock:window:maxin=1.400")
+        # err = self.send("autolock:window:maxout=1.400")
+        # err = self.send("autolock:window:minin=0.800")
+        # err = self.send("autolock:window:minout=0.800")
+        err = self.send("autolock:cursor:track=true")
+        err = self.send("autolock:cursor:snap=true")
+        err = self.send("autolock:smart:engage=true")
+        err = self.send("autolock:smart:setpoint=true")
     
-        self.send("offset:output=SC110 out")
+        err = self.send("offset:output=SC110 out")
     
-        self.send("scan:signal type=triangle")
-        self.send("scan:frequency=10")
-        self.send("scan:output=SC110 out")
-        self.send("scan:enable=true")
+        err = self.send("scan:signal type=triangle")
+        err = self.send("scan:frequency=10")
+        err = self.send("scan:output=SC110 out")
+        err = self.send("scan:enable=true")
+        
         time.sleep(0.5)       # to start new scan
+
+        return err
             
     def find_peak(self, init_offset, no_step):
     
         command = "scan:amplitude=%.4f" %self.scan_amp
-        self.send(command)
+        if self.send(command) == 0:
+            return 0, 1
         
         if self.shift_list[0] < 0:          # start scaning from left
             self.cnt = no_step - 1
@@ -208,7 +241,9 @@ class digiClient:
         
         while True:
         
-            x, y = self.get_graph()
+            err_con, x, y = self.get_graph()
+            if err_con == 0:
+                return err_con, 1
             try:
                 amp = max(y) - min(y)
             except :
@@ -221,7 +256,9 @@ class digiClient:
                     # shift the peak to the center
                     offset = x[y.index(min(y))]
                     command = "offset:value=%.4f" %offset
-                    self.send(command)
+                    if self.send(command) == 0:
+                        return 0, 1
+
                     time.sleep(1)
                 except :
                     continue
@@ -230,9 +267,10 @@ class digiClient:
                 if amp > self.amp_thr2:
                     
                     if self.cnt == 0:
-                        self.send("scan:amplitude=0.3000")
+                        if self.send("scan:amplitude=0.3000") == 0:
+                            return 0, 1
                         time.sleep(1)
-                    return 1
+                    return err_con, 1
                 # 1.8 * self.amp_thr should be bigger than amp_thr enough to avoid other modes
                 elif amp < self.amp_thr2 and amp > 1.8 * self.amp_thr:
                     
@@ -240,16 +278,19 @@ class digiClient:
                         
                         offset = x[len(x) - 1] + abs(x[len(x) - 1])
                         command = "offset:value=%.4f" %offset
-                        self.send(command)
+                        if self.send(command) == 0:
+                            return 0, 1
                     elif self.cnt >= no_step and self.cnt <= (no_step * 2):
                         
                         offset = x[0] - abs(x[0])
                         command = "offset:value=%.4f" %offset
-                        self.send(command)
+                        if self.send(command) == 0:
+                            return 0, 1
                     continue
                 else:
                     
-                    self.send("scan:amplitude=1.000")
+                    if self.send("scan:amplitude=1.000") == 0:
+                        return 0, 1
                     time.sleep(1)
                     continue
             else:
@@ -266,9 +307,11 @@ class digiClient:
                         self.cnt = no_step - 1
                         continue
                     command = "offset:value=%.4f" %offset
-                    self.send(command)
+                    if self.send(command) == 0:
+                        return 0, 1
                     command = "scan:amplitude=%.4f" %self.scan_amp
-                    self.send(command)
+                    if self.send(command) == 0:
+                        return 0, 1
                 elif self.cnt >= no_step and self.cnt <= (no_step * 2):
                 
                     # shift to left
@@ -280,26 +323,33 @@ class digiClient:
                         self.cnt = no_step * 2
                         continue
                     command = "offset:value=%.4f" %offset
-                    self.send(command)
+                    if self.send(command) == 0:
+                        return 0, 1
                     command = "scan:amplitude=%.4f" %self.scan_amp
-                    self.send(command)
+                    if self.send(command) == 0:
+                        return 0, 1
                 else:
                     command = "offset:value=%.4f" %init_offset
-                    self.send(command)
-                    return 0
+                    if self.send(command) == 0:
+                        return 0, 1
+                    return err_con, 0
 
                 time.sleep(1)
     
     def checking(self):
     
-        x, y = self.get_graph()
+        err_con, x, y = self.get_graph()
+        if err_con == 0:
+            return err_con, 1
         try:
             amp = max(y) - min(y)
             # print(amp)
         except:
             time.sleep(1)
-            err = self.checking()
-            return err
+            err_con, err = self.checking()
+            if err_con == 0:
+                return err_con, 1
+            return err_con, err
  
         if amp > self.amp_thr2:
             
@@ -307,45 +357,60 @@ class digiClient:
                 # shift the peak to the center
                 offset = x[y.index(min(y))]
                 command = "offset:value=%.4f" %offset
-                self.send(command)
+                if self.send(command) == 0:
+                    return 0, 1
                 command = "scan:amplitude=%.4f" %self.scan_amp2
-                self.send(command)
+                if self.send(command) == 0:
+                    return 0, 1
                 time.sleep(1)
                 err = 1
             except :
                 err = 0
         else:
         
-            err, offset = self.get_comm("offset:value", "f")
+            err_con, err, offset = self.get_comm("offset:value", "f")
+            if err_con == 0:
+                return err_con, 1
             if err == 0:
-                err, offset = self.get_comm("offset:value", "f")
+                err_con, err, offset = self.get_comm("offset:value", "f")
+                if err_con == 0:
+                    return err_con, 1
             # print(offset)
-            err = self.find_peak(offset, 6)
+            err_con, err = self.find_peak(offset, 6)
+            if err_con == 0:
+                return err_con, 1
             if err == 0:
 
                 offset = 0.0
                 command = "offset:value=%.4f" %offset
-                self.send(command)
+                if self.send(command) == 0:
+                    return 0, 1
                 self.shift_list[0] = 1          # don't care about direction
-                err = self.find_peak(offset, 30)
+                err_con, err = self.find_peak(offset, 30)
+                if err_con == 0:
+                    return err_con, 1
                 if err == 0:
                     
                     command = "offset:value=%.4f" %offset
-                    self.send(command)
+                    if self.send(command) == 0:
+                        return 0, 1
         
-        return err
+        return err_con, err
 
     def lock(self):
     
         # stabilizing data
         time.sleep(self.cnt)
-        x, y = self.get_graph()
+        err_con, x, y = self.get_graph()
+        if err_con == 0:
+            return err_con, 1
         try:
             
             # shift the peak to the center
             offset = x[y.index(min(y))]
             command = "offset:value=%.4f" %offset
-            self.send(command)
+            if self.send(command) == 0:
+                return 0, 1
             self.amp_max = max(y)
             amp = self.amp_max - min(y)
             # print(amp)
@@ -353,22 +418,34 @@ class digiClient:
             self.lock_point = offset
         except :
             time.sleep(1)
-            err = self.lock()
-            return err
+            err_con, err = self.lock()
+            if err_con == 0:
+                return err_con, 1
+            return err_con, err
     
         if amp > self.amp_thr2:
             
             command = "scan:amplitude=%.4f" %self.scan_amp2
-            self.send(command)
+            if self.send(command) == 0:
+                return 0, 1
             command = "autolock:setpoint=%.3f" %set_point
-            self.send(command)
+            if self.send(command) == 0:
+                return 0, 1
+            
+            err1 = self.send("autolock:cursor:track=true")
+            err1 = self.send("autolock:cursor:snap=true")
+            if err1 == 0:
+                return 0, 1
             time.sleep(2)
-            self.send("autolock:lock:enable=true")
+            if self.send("autolock:lock:enable=true") == 0:
+                return 0, 1
             err = 1
 
             time.sleep(1)
-            # err, y_c = self.get_comm("autolock:display:ch1:mean", "f")
-            err, index = self.get_comm("autolock:display:cursor index", "i")
+            # err_con, err, y_c = self.get_comm("autolock:display:ch1:mean", "f")
+            err_con, err, index = self.get_comm("autolock:display:cursor index", "i")
+            if err_con == 0:
+                return err_con, 1
             if err == 0:
                 index = 500
             # x_c = x[index]
@@ -376,33 +453,54 @@ class digiClient:
             # print(index, "\t", set_point, "\t", y_c, "\t", set_point * 1.01)
             if index < 2 or index > 999:
             # if y_c > set_point * 1.01:
-                self.send("autolock:lock:enable=false")
-                err = self.lock()
+                if self.send("autolock:lock:enable=false") == 0:
+                    return 0, 1
+                err_con, err = self.lock()
+                if err_con == 0:
+                    return err_con, 1
         else:
 
-            err, offset = self.get_comm("offset:value", "f")
+            err_con, err, offset = self.get_comm("offset:value", "f")
+            if err_con == 0:
+                return err_con, 1
             if err == 0:
                 offset = self.lock_point
-            err = self.find_peak(offset, 6)
+            err_con, err = self.find_peak(offset, 6)
+            if err_con == 0:
+                return err_con, 1
             if err == 0:
 
                 offset = 0.0
                 command = "offset:value=%.4f" %offset
-                self.send(command)
+                if self.send(command) == 0:
+                    return 0, 1
                 self.shift_list[0] = 1          # don't care about direction
-                err = self.find_peak(offset, 30)
+                err_con, err = self.find_peak(offset, 30)
+                if err_con == 0:
+                    return err_con, 1
                 if err == 0:
                     
                     command = "offset:value=%.4f" %offset
-                    self.send(command)
+                    if self.send(command) == 0:
+                        return 0, 1
             if err == 1:
-                err = self.lock()
+                err_con, err = self.lock()
+                if err_con == 0:
+                    return err_con, 1
 
-        return err
+        return err_con, err
             
+    def unlock(self):
+
+        if self.send("autolock:lock:enable=false") == 0:
+            return 0
+        return 1
+    
     def check_lock(self):
 
-        x, y = self.get_graph()
+        err_con, x, y = self.get_graph()
+        if err_con == 0:
+            return err_con, 1, 2
         try:
             
             err = 1
@@ -426,51 +524,61 @@ class digiClient:
                 if self.uncnt == 2:
 
                     self.uncnt = 0
-                    self.send("autolock:lock:enable=false")
+                    if self.send("autolock:lock:enable=false") == 0:
+                        return 0, 1, 2
                     err = 0
             elif abs(shift) >= 0.25:
 
                 self.uncnt = 0
-                self.send("autolock:lock:enable=false")
+                if self.send("autolock:lock:enable=false") == 0:
+                    return 0, 1, 2
                 upd_time = 0.01
                 err = 0   
             
             if err == 0:
                 self.cnt = 0
                 command = "offset:value=%.4f" %self.lock_point      # back to lock point
-                self.send(command)
-                err = self.lock()
+                if self.send(command) == 0:
+                    return 0, 1, 2
+                err_con, err = self.lock()
+                if err_con == 0:
+                    return err_con, 1, upd_time
 
             self.lock_point = lp
             
             # if amp_min > self.amp_max * 0.9:
-            #     self.send("autolock:lock:enable=false")
+                # if self.send("autolock:lock:enable=false") == 0:
+                #     return 0, 1, 2
             #     err = 0
             #     print("amp")
 
         except :
             pass
 
-        return err, upd_time
+        return err_con, err, upd_time
  
 
 
 # digi = digiClient()
 # digi.connect(ip = "192.168.0.175", port = 60001)
+# # time.sleep(10)
 # digi.set_peakTpeak(ptp = 0.04)
-# digi.setting()
-# err = digi.checking()
+# err_con = digi.setting()
+# # print(err_con)
+# err_con, err = digi.checking()
 # if err == 0:
-#     err = digi.checking()
-# if err == 1:
+#     err_con, err = digi.checking()
+# if err_con == 1 and err == 1:
     
-#     err = digi.lock()
+#     err_con, err = digi.lock()
 #     if err == 0:
-#         err = digi.lock()
-#     if err == 1:
-#         digi.update()     # in [s]
+#         err_con, err = digi.lock()
+# up_t = 1
+# while err_con == 1:
 
-
+#     time.sleep(up_t)
+#     err_con, err, up_t = digi.check_lock()
+#     print(err_con)
 
 # digi.__del__()
 
