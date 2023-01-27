@@ -1,4 +1,4 @@
-Auto Relocking ECDL using Redpitaya
+Wavemeter API Server
 ========================================
 
 This project is for running server on Wavemeter PC to get information and send them to the clients, 
