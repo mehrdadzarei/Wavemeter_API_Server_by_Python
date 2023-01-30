@@ -169,11 +169,11 @@ class digiClient:
         if err_con == 0:
             return err_con, 0, 0
         
-        if len(data) == 0:
-            err_con, x, y = self.get_graph()
-            if err_con == 0:
-                return err_con, 0, 0
-            return err_con, x, y
+        # if len(data) == 0:
+        #     err_con, x, y = self.get_graph()
+        #     if err_con == 0:
+        #         return err_con, 0, 0
+        #     return err_con, x, y
     
         try:
             data = data.split('=')
