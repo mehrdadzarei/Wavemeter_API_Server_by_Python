@@ -171,6 +171,7 @@ def handle_digi():
         if digi_con == 2:
             
             digi_con = digi.connect(ip = digi_ip, port = digi_port)
+            print(digi_con)
             
             if digi_con == 1:
 
