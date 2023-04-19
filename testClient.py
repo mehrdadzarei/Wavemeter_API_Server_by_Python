@@ -3,7 +3,7 @@
 
 import Client
 import sys
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 
 
 
@@ -16,37 +16,37 @@ switch_mode = wlm.getSwitchMode()
 print(switch_mode)
 
 # mode 0 for manual expo and 1 for auto axpo
-wlm.setExpoAuto(1)
-exp = wlm.getExpoAuto()
-print(exp)
+#wlm.setExpoAuto(0)
+#exp = wlm.getExpoAuto()
+#print(exp)
 
-wlm.setExpUp(10)
-expup = wlm.getExpUp()
-print(expup)
+#wlm.setExpUp(10)
+#expup = wlm.getExpUp()
+#print(expup)
 
-wlm.setExpDown(10)
-expdown = wlm.getExpDown()
-print(expdown)
+#wlm.setExpDown(10)
+#expdown = wlm.getExpDown()
+#print(expdown)
 
 # number of digits (precision of wavemeter)
-wlm.setPrec(5)
+#wlm.setPrec(4)
 
 # channel
 wavel = wlm.getWavelength(7)
 print(wavel)
 
 # channel
-freq = wlm.getFrequency(7)
+freq = wlm.getFrequency(5)
 print(freq)
 
 # channel
-spec = wlm.getSpectrum(7)
-plt.plot(spec)
-plt.show()
+#spec = wlm.getSpectrum(7)
+#plt.plot(spec)
+#plt.show()
 
 # channel
-all = wlm.getAll(7)
-print(all["freq"])
+#all = wlm.getAll(7)
+#print(all["freq"])
 
 wlm.disconnect()
 

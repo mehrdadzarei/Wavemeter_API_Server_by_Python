@@ -264,7 +264,7 @@ def handle_client(event, conn, addr):
     connected = True
     
     ch = 1
-    prec = 5
+    prec = 4
     switch_mode = -1
     exp_mode = False
     exp_up = -1
@@ -478,8 +478,8 @@ def start():
     print(f"[LISTENING] Server is listening on ({SERVER}:{PORT})")
 
     # start thread for DigiLock
-    digi_thread = threading.Thread(target=handle_digi, args=())
-    digi_thread.start()
+    #digi_thread = threading.Thread(target=handle_digi, args=())
+    #digi_thread.start()
 
     while True:
 

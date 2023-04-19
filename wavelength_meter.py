@@ -121,7 +121,7 @@ class WavelengthMeter:
 
         # Control Operation
         # state : cCtrlStopAll, cCtrlStartMeasurement
-        if self.dll.GetOperationState() != state:
+        if self.dll.GetOperationState(self.index) != state:
     
             err = self.dll.Operation(state)
             if err == ResERR_WlmMissing:
@@ -132,7 +132,7 @@ class WavelengthMeter:
 
     def getSwitcherMode(self):
 
-        return self.dll.GetSwitcherMode()
+        return self.dll.GetSwitcherMode(self.index)
 
     def setSwitcherMode(self, mode):
 
@@ -143,7 +143,7 @@ class WavelengthMeter:
     
     def getSwitcherChannel(self):
 
-        return self.dll.GetSwitcherChannel()
+        return self.dll.GetSwitcherChannel(self.index)
 
     def setSwitcherChannel(self, channel, t = 0.3):
 
