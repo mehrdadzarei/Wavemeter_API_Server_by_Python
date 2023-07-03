@@ -10,15 +10,17 @@ import sys
 wlm = Client.wlmClient()
 wlm.connect(ip = str(sys.argv[1]), port = int(sys.argv[2]))
 
+wlm.getWavelength(7)
+
 # mode 0 for single mode and 1 for switch mode
-wlm.setSwitchMode(1)
+wlm.setSwitchMode(0)
 switch_mode = wlm.getSwitchMode()
 print(switch_mode)
 
 # mode 0 for manual expo and 1 for auto axpo
-#wlm.setExpoAuto(0)
-#exp = wlm.getExpoAuto()
-#print(exp)
+wlm.setExpoAuto(1)
+exp = wlm.getExpoAuto()
+print(exp)
 
 #wlm.setExpUp(10)
 #expup = wlm.getExpUp()
@@ -29,7 +31,7 @@ print(switch_mode)
 #print(expdown)
 
 # number of digits (precision of wavemeter)
-#wlm.setPrec(4)
+wlm.setPrec(4)
 
 # channel
 wavel = wlm.getWavelength(7)
@@ -40,7 +42,7 @@ freq = wlm.getFrequency(5)
 print(freq)
 
 # channel
-#spec = wlm.getSpectrum(7)
+spec = wlm.getSpectrum(7)
 #plt.plot(spec)
 #plt.show()
 

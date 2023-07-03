@@ -205,11 +205,13 @@ class WavelengthMeter:
         
         spectrum_list = []
         n = round(self.count/2)
-
+        
         for i in range(0, n):
             spectrum_list.append(memory_values.contents[i])
         
-        max_main = self.dll.GetAmplitudeNum(ctypes.c_long(channel), cMax2)
+        # add index to avoid error
+        max_main = self.dll.GetAmplitudeNum(ctypes.c_long(channel), cMax2, self.index)
+        
         max_spec = max(spectrum_list)
         if max_main == 0:
 

@@ -28,7 +28,7 @@ SERVER = str(sys.argv[1])
 ADDR = (SERVER, PORT)
 FORMAT = "utf-8"
 DISCONNECT_MESSAGE = "!DISCONNECT"
-time_out = 20.0
+time_out = 60.0
 
 wlm_state = True
 
@@ -60,7 +60,11 @@ def my_send(conn, msg):
     # waiting for reply
     while True:
 
-        msg_recv = conn.recv(1)
+        try:
+            msg_recv = conn.recv(1)
+        except Exception:
+            msg_recv = '0'
+
         if msg_recv == '':
             return -1
         try:
@@ -82,7 +86,11 @@ def my_send(conn, msg):
     # waiting for reply
     while True:
 
-        msg_recv = conn.recv(1)
+        try:
+            msg_recv = conn.recv(1)
+        except Exception:
+            msg_recv = '0'
+
         if msg_recv == '':
             return -1
         try:
@@ -105,7 +113,11 @@ def my_send(conn, msg):
     # waiting for reply
     while True:
 
-        msg_recv = conn.recv(1)
+        try:
+            msg_recv = conn.recv(1)
+        except Exception:
+            msg_recv = '0'
+
         if msg_recv == '':
             return -1
         try:
@@ -123,7 +135,10 @@ def my_recv(conn):
     chunks = []
     bytes_recd = 0
     
-    conn.send(bytes("1".encode(FORMAT)))
+    try:
+        conn.send(bytes("1".encode(FORMAT)))
+    except Exception:
+        return '0'
 
     # recv msg len
     while bytes_recd < HEADER:
@@ -264,7 +279,7 @@ def handle_client(event, conn, addr):
     connected = True
     
     ch = 1
-    prec = 4
+    prec = 5
     switch_mode = -1
     exp_mode = False
     exp_up = -1
@@ -450,16 +465,17 @@ def handle_client(event, conn, addr):
             message = data.encode(FORMAT)
             
             err = my_send(conn, message)
+            
             if err == 0:
                 continue
             elif err == -1:
                 connected = False
                 continue
 
-        except Exception:
+        except Exception as e:
             
             now = datetime.now()
-            print(f"[ERROR] connection {addr} is closing with error at {now}")
+            print(f"[ERROR] connection {addr} is closing with error at {now} for {e}")
             conn.close()
 
             return
