@@ -279,6 +279,8 @@ def handle_client(event, conn, addr):
     connected = True
     
     ch = 1
+    wlm_ch = 1
+    keep_ch = 0
     prec = 5
     switch_mode = -1
     exp_mode = False
@@ -307,7 +309,7 @@ def handle_client(event, conn, addr):
             
                 connected = False
                 continue
-            
+
             if "WLM_RUN" in obj_recv and obj_recv["WLM_RUN"] == 1:
 
                 if wlm_state:
@@ -315,13 +317,22 @@ def handle_client(event, conn, addr):
                     wlm.run(action = 'show')    # show or hide
                     wlm.measurement(cCtrlStartMeasurement)   # state : cCtrlStopAll, cCtrlStartMeasurement
             
+                if "RELOCKING" in obj_recv:
+                    keep_ch = obj_recv["RELOCKING"]
+
+                # keep software on the same channel
+                if keep_ch == 0:
+                    wlm_ch = wlm.getSwitcherChannel()
+                elif keep_ch == 2:
+                    keep_ch = 0
+                    
                 if "CH" in obj_recv:
 
                     ch = obj_recv["CH"]
                     if ch < 1 or ch > 8:
                         ch = 1
                 else:
-                    ch = ch
+                    ch = wlm_ch
 
                 wlmSwitch_mode = wlm.getSwitcherMode()
                 # take changes from wavemeter
@@ -418,6 +429,10 @@ def handle_client(event, conn, addr):
                     obj_send["SPEC"] = spectrum_list
                 else:
                     obj_send["RATIO"] = "None"
+
+                # back to the same channel
+                if keep_ch == 0:
+                    wlm.setSwitcherChannel(wlm_ch)
                     
             if "DIGI_RUN" in obj_recv and obj_recv["DIGI_RUN"] == 1:
 
