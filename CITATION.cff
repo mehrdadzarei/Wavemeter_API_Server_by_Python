@@ -1,0 +1,18 @@
+cff-version: 1.2.0
+title: Wavemeter API server based, by Python
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file.
+type: software
+authors:
+  - given-names: Mehrdad
+    family-names: Zarei
+    email: mehr.zarei1@gmail.com
+    affiliation: Nicolaus Copernicus University
+    orcid: 'https://orcid.org/0000-0002-9541-9829'
+identifiers:
+  - type: doi
+    value: 10.5281/zenodo.10290160
+repository-code: 'https://github.com/mehrdadzarei/Wavemeter_API_Server_by_Python'
+abstract: 
+date-released: 2023-12-07
